@@ -218,8 +218,10 @@ void adis16480_read_sys_e_flag(adis16480_t *sensor)
 
 void adis16480_read_diag_sts(adis16480_t *sensor)
 {
+    uint16_t answer = adis16480_read_register(sensor, DIAG_STS);
 
-
+    sensor->diag_sts.barometer_self_test_failure = (answer&0x800) >> 11;
+    sensor->diag_sts.accel_z_self_test_failure
 
 }
 
@@ -228,10 +230,13 @@ void adis16480_tare(adis16480_t *sensor)
     adis16480_write_register(sensor, GLOB_CMD, 0x100);
 }
 
-// void adis16480_self_test(adis16480_t *sensor)
-// {
+void adis16480_self_test(adis16480_t *sensor)
+{
+    adis16480_write_register(sensor, GLOB_CMD, 0x2);
+    HAL_Delay(12);
 
-// }
+
+}
 
 // void adis16480_set_dec_rate(uint16_t value)
 // {
