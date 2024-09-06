@@ -4,6 +4,7 @@
 
 #include "stm32f4xx_hal.h"
 #include "spi.h"
+#include <math.h>
 
 #define SPI_NOP 		0x00 // No operation. Use for dummy writes.
 // User Register Memory Map from Table 9
@@ -157,12 +158,23 @@ typedef struct {
     uint16_t cs_pin;
 
 	/* Main ADIS output parameters */
-
+	float euler_angle[3];
+	float euler_scale_var;
 
 	float linear_acceleration[3];
-	float angular_velocity[3];
-	float magnetic_field[3];
+	float accl_scale_var;
 
+	float angular_velocity[3];
+	float gyro_scale_var;
+
+	float magnetic_field[3];
+	float magn_course;
+	float magn_scale_var;
+
+	float temperature;
+
+	float pressure;
+	float pressure_scale_var;
 	/* Raw Registers */
 
 	unsigned int seq_cnt : 6;
@@ -466,11 +478,31 @@ uint8_t adis16480_init(adis16480_t *object,
 
 void adis16480_reset(adis16480_t *object);
 
+void adis16480_set_body_frame(adis16480_t *sensor);
+
+void adis16480_update_euler_angles(adis16480_t *sensor);
+
+uint16_t adis16480_read_register_in_debug(adis16480_t *object, uint16_t reg);
+
+void adis16480_set_gyro_scale_to_rads(adis16480_t *sensor);
+
+void adis16480_set_gyro_scale_to_degs(adis16480_t *sensor);
+
+void adis16480_set_gyro_scale_custom(adis16480_t *sensor, float new_scale);
+
+void adis16480_set_accl_scale(adis16480_t *sensor, float new_scale);
+
+void adis16480_set_magn_scale_to_tesla(adis16480_t *sensor);
+
+void adis16480_set_magn_scale_to_gauss(adis16480_t *sensor);
+
+void adis16480_set_magn_scale_custom(adis16480_t *sensor, float new_scale);
+
 void adis16480_update_acceleration(adis16480_t *object);
 
 void adis16480_update_angular_velocity(adis16480_t *object);
 
-void adis16480_update_magnetic_field(adis16480_t *object);
+void adis16480_update_magnetic_course(adis16480_t *object);
 
 void adis16480_read_seq_cnt(adis16480_t *object);
 
