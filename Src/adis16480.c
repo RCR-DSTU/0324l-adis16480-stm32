@@ -2,12 +2,12 @@
 
 uint8_t adis16480_init(adis16480_t *sensor,
                     SPI_HandleTypeDef *interface, 
-                    GPIO_TypeDef *port,
-                    uint16_t pin)
+                    GPIO_TypeDef *cs_port,
+                    uint16_t cs_pin)
 {
     sensor->interface = interface;
-    sensor->cs_port = port;
-    sensor->cs_pin = pin;
+    sensor->cs_port = cs_port;
+    sensor->cs_pin = cs_pin;
 
     sensor->prod_id = 0x00;
 
@@ -26,6 +26,21 @@ uint8_t adis16480_init(adis16480_t *sensor,
     //todo
     sensor->euler_scale_var = 0.00549324 * M_PI / 180;
     return 0x00;
+}
+
+/*
+    Standard ADIS processing function
+
+    @brief __weak adis16480_tick
+        @param asis16480_t *sensor - sensor pointer typedef
+    @return void
+*/
+__weak void adis16480_tick(adis16480_t *sensor)
+{
+    adis16480_update_acceleration(sensor);
+    adis16480_update_angular_velocity(sensor);
+    adis16480_update_magnetic_course(sensor);
+    adis16480_update_euler_angles(sensor);
 }
 
 void adis16480_reset(adis16480_t *sensor)
@@ -221,8 +236,13 @@ void adis16480_read_diag_sts(adis16480_t *sensor)
     uint16_t answer = adis16480_read_register(sensor, DIAG_STS);
 
     sensor->diag_sts.barometer_self_test_failure = (answer&0x800) >> 11;
-    sensor->diag_sts.accel_z_self_test_failure
+    
+    sensor->diag_sts.magn_z_self_test_failure = (answer&0x400) >> 10;
+    sensor->diag_sts.magn_y_self_test_failure = (answer&0x200) >> 9;
+    sensor->diag_sts.magn_x_self_test_failure = (answer&0x100) >> 8;
 
+    sensor->diag_sts.accel_z_self_test_failure = (answer&0x20) >> 5;
+    sensor->diag_sts.accel_y_self_test_failure = (answer&0x10) >> 4;
 }
 
 void adis16480_tare(adis16480_t *sensor)

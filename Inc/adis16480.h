@@ -476,6 +476,8 @@ uint8_t adis16480_init(adis16480_t *object,
                     GPIO_TypeDef *port,
                     uint16_t pin);
 
+void adis16480_tick(adis16480_t *sensor);
+
 void adis16480_reset(adis16480_t *object);
 
 void adis16480_set_body_frame(adis16480_t *sensor);
