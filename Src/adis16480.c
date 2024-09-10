@@ -1,5 +1,8 @@
 #include "adis16480.h"
 
+static void adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value);
+static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr);
+
 uint8_t adis16480_init(adis16480_t *sensor,
                     SPI_HandleTypeDef *interface, 
                     GPIO_TypeDef *cs_port,
@@ -23,8 +26,7 @@ uint8_t adis16480_init(adis16480_t *sensor,
     // initial scaling to gauss
     sensor->magn_scale_var = 0.0001f;
     // initial scaling to degrees
-    //todo
-    sensor->euler_scale_var = 0.00549324 * M_PI / 180;
+    sensor->euler_scale_var = 0.00549324;
     return 0x00;
 }
 
@@ -33,7 +35,7 @@ uint8_t adis16480_init(adis16480_t *sensor,
 
     @brief __weak adis16480_tick
         @param asis16480_t *sensor - sensor pointer typedef
-    @return void
+    @retval None
 */
 __weak void adis16480_tick(adis16480_t *sensor)
 {
@@ -41,6 +43,11 @@ __weak void adis16480_tick(adis16480_t *sensor)
     adis16480_update_angular_velocity(sensor);
     adis16480_update_magnetic_course(sensor);
     adis16480_update_euler_angles(sensor);
+}
+
+__weak void adis16480_diagnostic_tick(adis16480_t *sensor)
+{
+    
 }
 
 void adis16480_reset(adis16480_t *sensor)
@@ -84,14 +91,6 @@ void adis16480_set_body_frame(adis16480_t *sensor)
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-}
-
-uint16_t adis16480_read_register_in_debug(adis16480_t *sensor, uint16_t reg)
-{
-    uint16_t _data_read;
-    _data_read = adis16480_read_register(sensor, reg);
-    HAL_Delay(10);
-    return _data_read;
 }
 
 void adis16480_set_gyro_scale_to_rads(adis16480_t *sensor)
@@ -213,22 +212,7 @@ void adis16480_read_seq_cnt(adis16480_t *sensor)
 
 void adis16480_read_sys_e_flag(adis16480_t *sensor)
 {
-    uint16_t answer = 0x00;
-    answer = adis16480_read_register(sensor, SYS_E_FLAG);
-
-    sensor->sys_e_flag.watchdog_flag = (unsigned int)(answer&0x8000) >> 15;
-    sensor->sys_e_flag.ekf_divergence = (unsigned int)(answer&0x2000) >> 13;
-    sensor->sys_e_flag.gyroscope_saturation = (unsigned int)(answer&0x1000) >> 12;
-    sensor->sys_e_flag.magnetometer_disturbance = (unsigned int)(answer&0x800) >> 11;
-    sensor->sys_e_flag.acceleration_threshold_flag = (unsigned int)(answer&0x400) >> 10;
-    sensor->sys_e_flag.barometer_new_data = (unsigned int)(answer&0x200) >> 9;
-    sensor->sys_e_flag.magnetometer_new_data = (unsigned int)(answer&0x100) >> 8;
-    sensor->sys_e_flag.processing_overrun = (unsigned int)(answer&0x80) >> 7;
-    sensor->sys_e_flag.flash_memory_update_flag = (unsigned int)(answer&0x40) >> 6;
-    sensor->sys_e_flag.inertial_self_test_flag = (unsigned int)(answer&0x20) >> 5;
-    sensor->sys_e_flag.sensor_overrange = (unsigned int)(answer&0x10) >> 4;
-    sensor->sys_e_flag.spi_connection_error =(unsigned int)(answer&0x8) >> 3;
-    sensor->sys_e_flag.alarm_status_flag = (unsigned int)(answer&0x1);
+    sensor->sys_e_flag.adis_register = adis16480_read_register(sensor, SYS_E_FLAG);
 }
 
 void adis16480_read_diag_sts(adis16480_t *sensor)
@@ -252,39 +236,15 @@ void adis16480_tare(adis16480_t *sensor)
 
 void adis16480_self_test(adis16480_t *sensor)
 {
+    // setting bit 2 to apply self-test
     adis16480_write_register(sensor, GLOB_CMD, 0x2);
+    // waiting 12 ms
     HAL_Delay(12);
-
-
+    // reading result state in diag_sts register
+    adis16480_read_diag_sts(sensor);
 }
 
-// void adis16480_set_dec_rate(uint16_t value)
-// {
-
-// }
-
-// void adis16480_set_ref_matrix(int16_t *matrix)
-// {
-
-// }
-
-uint16_t adis16480_read_page(adis16480_t *sensor)
-{
-    uint16_t reg = 0, _dataRead;
-    // Set page
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10); // write to GLOB_CMD upper byte
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    // Read Data
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Receive(sensor->interface, (uint8_t *)&_dataRead, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    return(_dataRead);
-}
-
-uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr)
+static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr)
 {
     uint16_t reg, _data_read;
 
@@ -308,7 +268,7 @@ uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr)
     return(_data_read);
 }
 
-void adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value)
+static void adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value)
 {
     uint16_t reg;	
     // Set page

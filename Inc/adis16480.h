@@ -6,6 +6,16 @@
 #include "spi.h"
 #include <math.h>
 
+/*
+	@brief __USE_FULL_REGISTERS
+	
+	Uncomment this macro
+	to enable full sensor register control
+
+	Unlock full functions list
+*/
+#define __USE_FULL_REGISTERS
+
 #define SPI_NOP 		0x00 // No operation. Use for dummy writes.
 // User Register Memory Map from Table 9
 #define PAGE_ID 		0x00 // 0x00, R/W, No, Page identifier, N/A
@@ -178,297 +188,427 @@ typedef struct {
 	/* Raw Registers */
 
 	unsigned int seq_cnt : 6;
-	struct {
-		unsigned int 	watchdog_flag : 1;
-		unsigned int 	ekf_divergence : 1;
-		unsigned int 	gyroscope_saturation : 1;
-		unsigned int 	magnetometer_disturbance : 1;
-		unsigned int 	acceleration_threshold_flag : 1;
-		unsigned int	barometer_new_data : 1;
-		unsigned int	magnetometer_new_data : 1;
-		unsigned int	processing_overrun : 1;
-		unsigned int	flash_memory_update_flag : 1;
-		unsigned int	inertial_self_test_flag : 1;
-		unsigned int	sensor_overrange : 1;
-		unsigned int	spi_connection_error : 1;
-		unsigned int	alarm_status_flag : 1;
+	/*
+		[SYS_E_FLAG]
+		Page 0, Base address = 0x08
+	*/
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	watchdog_flag : 1;
+			unsigned int	not_used_0 : 1;
+			unsigned int 	ekf_divergence : 1;
+			unsigned int 	gyroscope_saturation : 1;
+			unsigned int 	magnetometer_disturbance : 1;
+			unsigned int 	acceleration_threshold_flag : 1;
+			unsigned int	barometer_new_data : 1;
+			unsigned int	magnetometer_new_data : 1;
+			unsigned int	processing_overrun : 1;
+			unsigned int	flash_memory_update_flag : 1;
+			unsigned int	inertial_self_test_flag : 1;
+			unsigned int	sensor_overrange : 1;
+			unsigned int	spi_connection_error : 1;
+			unsigned int	not_used_1 : 2;
+			unsigned int	alarm_status_flag : 1;
+		} bits;
 	} sys_e_flag;
-	struct {
-		unsigned int barometer_self_test_failure : 1;
-		unsigned int magn_z_self_test_failure : 1;
-		unsigned int magn_y_self_test_failure : 1;
-		unsigned int magn_x_self_test_failure : 1;
-		unsigned int accel_z_self_test_failure : 1;
-		unsigned int accel_y_self_test_failure : 1;
-		unsigned int accel_x_self_test_failure : 1;
-		unsigned int gyro_z_self_test_failure : 1;
-		unsigned int gyro_y_self_test_failure : 1;
-		unsigned int gyro_x_self_test_failure : 1;	
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	barometer_self_test_failure : 1;
+			unsigned int 	magn_z_self_test_failure : 1;
+			unsigned int 	magn_y_self_test_failure : 1;
+			unsigned int 	magn_x_self_test_failure : 1;
+			unsigned int 	accel_z_self_test_failure : 1;
+			unsigned int 	accel_y_self_test_failure : 1;
+			unsigned int 	accel_x_self_test_failure : 1;
+			unsigned int 	gyro_z_self_test_failure : 1;
+			unsigned int 	gyro_y_self_test_failure : 1;
+			unsigned int 	gyro_x_self_test_failure : 1;
+		} bits;
 	} diag_sts;
-	struct {
-		unsigned int barometer_alarm_flag : 1;
-		unsigned int magn_z_alarm_flag : 1;
-		unsigned int magn_y_alarm_flag : 1;
-		unsigned int magn_x_alarm_flag : 1;
-		unsigned int accel_z_alarm_flag : 1;
-		unsigned int accel_y_alarm_flag : 1;
-		unsigned int accel_x_alarm_flag : 1;
-		unsigned int gyro_z_alarm_flag : 1;
-		unsigned int gyro_y_alarm_flag : 1;
-		unsigned int gyro_x_alarm_flag : 1;			
+
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int 	barometer_alarm_flag : 1;
+			unsigned int 	magn_z_alarm_flag : 1;
+			unsigned int 	magn_y_alarm_flag : 1;
+			unsigned int 	magn_x_alarm_flag : 1;
+			unsigned int 	accel_z_alarm_flag : 1;
+			unsigned int 	accel_y_alarm_flag : 1;
+			unsigned int 	accel_x_alarm_flag : 1;
+			unsigned int 	gyro_z_alarm_flag : 1;
+			unsigned int 	gyro_y_alarm_flag : 1;
+			unsigned int 	gyro_x_alarm_flag : 1;	
+		} bits;
 	} alm_sts;
-	int16_t temp_out;
-	int16_t x_gyro_low;
-	int16_t x_gyro_out;
-	int16_t y_gyro_low;
-	int16_t y_gyro_out;
-	int16_t z_gyro_low;
-	int16_t z_gyro_out;
-	int16_t x_accl_low;
-	int16_t x_accl_out;
-	int16_t y_accl_low;
-	int16_t y_accl_out;
-	int16_t z_accl_low;
-	int16_t z_accl_out;
-	int16_t x_magn_out;
-	int16_t y_magn_out;
-	int16_t z_magn_out;
-	int16_t barom_low;
-	int16_t barom_out;
-	int16_t x_deltang_low;
-	int16_t x_deltang_out;
-	int16_t y_deltang_low;
-	int16_t y_deltang_out;
-	int16_t z_deltang_low;
-	int16_t z_deltang_out;	
-	int16_t x_deltvel_low;
-	int16_t x_deltvel_out;
-	int16_t y_deltvel_low;
-	int16_t y_deltvel_out;
-	int16_t z_deltvel_low;
-	int16_t z_deltvel_out;	
-	int16_t q0_c11_out;
-	int16_t q1_c12_out;
-	int16_t q2_c13_out;
-	int16_t q3_c21_out;
-	int16_t c22_out;
-	int16_t roll_c23_out;
-	int16_t pitch_c31_out;
-	int16_t yaw_c32_out;
-	int16_t c33_out;
-	struct {
-		unsigned int minutes : 6;
-		unsigned int seconds : 6;
+
+	int16_t 				temp_out;
+	int16_t 				x_gyro_low;
+	int16_t 				x_gyro_out;
+	int16_t 				y_gyro_low;
+	int16_t 				y_gyro_out;
+	int16_t 				z_gyro_low;
+	int16_t 				z_gyro_out;
+	int16_t 				x_accl_low;
+	int16_t 				x_accl_out;
+	int16_t 				y_accl_low;
+	int16_t 				y_accl_out;
+	int16_t 				z_accl_low;
+	int16_t 				z_accl_out;
+	int16_t 				x_magn_out;
+	int16_t 				y_magn_out;
+	int16_t 				z_magn_out;
+	int16_t 				barom_low;
+	int16_t 				barom_out;
+	int16_t 				x_deltang_low;
+	int16_t 				x_deltang_out;
+	int16_t 				y_deltang_low;
+	int16_t 				y_deltang_out;
+	int16_t 				z_deltang_low;
+	int16_t 				z_deltang_out;	
+	int16_t 				x_deltvel_low;
+	int16_t 				x_deltvel_out;
+	int16_t 				y_deltvel_low;
+	int16_t 				y_deltvel_out;
+	int16_t 				z_deltvel_low;
+	int16_t 				z_deltvel_out;	
+	int16_t 				q0_c11_out;
+	int16_t 				q1_c12_out;
+	int16_t 				q2_c13_out;
+	int16_t 				q3_c21_out;
+	int16_t 				c22_out;
+	int16_t 				roll_c23_out;
+	int16_t 				pitch_c31_out;
+	int16_t 				yaw_c32_out;
+	int16_t 				c33_out;
+
+#ifdef __USE_FULL_REGISTERS
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int 	not_used_0 : 2;
+			unsigned int 	minutes : 6;
+			unsigned int 	not_used_1 : 2;
+			unsigned int 	seconds : 6;			
+		} bits;
 	} time_ms_out;
-	struct {
-		unsigned int day : 5;
-		unsigned int hours : 5;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int	not_used_0 : 3;
+			unsigned int 	day : 5;
+			unsigned int	not_used_1 : 2;
+			unsigned int 	hours : 6;
+		} bits;
+
 	} time_dh_out;
-	struct {
-		unsigned int year : 7;
-		unsigned int month : 3;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int	not_used_0 : 1;
+			unsigned int 	year : 7;
+			unsigned int 	not_used_1 : 4;
+			unsigned int 	month : 4;
+		} bits;
 	} time_ym_out;
-	uint16_t prod_id;
-	uint16_t x_gyro_scale;
-	uint16_t y_gyro_scale;
-	uint16_t z_gyro_scale;
-	uint16_t x_accl_scale;
-	uint16_t y_accl_scale;
-	uint16_t z_accl_scale;	
-	uint16_t xg_bias_low;
-	uint16_t xg_bias_high;
-	uint16_t yg_bias_low;
-	uint16_t yg_bias_high;
-	uint16_t zg_bias_low;
-	uint16_t zg_bias_high;		
-	uint16_t xa_bias_low;
-	uint16_t xa_bias_high;
-	uint16_t ya_bias_low;
-	uint16_t ya_bias_high;
-	uint16_t za_bias_low;
-	uint16_t za_bias_high;	
-	uint16_t hard_iron_x;
-	uint16_t hard_iron_y;
-	uint16_t hard_iron_z;
-	uint16_t soft_iron_s11;
-	uint16_t soft_iron_s12;
-	uint16_t soft_iron_s13;
-	uint16_t soft_iron_s21;
-	uint16_t soft_iron_s22;
-	uint16_t soft_iron_s23;
-	uint16_t soft_iron_s31;
-	uint16_t soft_iron_s32;
-	uint16_t soft_iron_s33;
-	uint16_t br_bias_low;
-	uint16_t br_bias_high;
-	uint16_t refmtx_r11;
-	uint16_t refmtx_r12;
-	uint16_t refmtx_r13;
-	uint16_t refmtx_r21;
-	uint16_t refmtx_r22;
-	uint16_t refmtx_r23;
-	uint16_t refmtx_r31;
-	uint16_t refmtx_r32;
-	uint16_t refmtx_r33;
-	uint16_t user_scr_1;
-	uint16_t user_scr_2;
-	uint16_t user_scr_3;
-	uint16_t user_scr_4;
-	uint16_t flshcnt_low;
-	uint16_t flshcnt_high;
-	struct {
-		unsigned int ekf_reset : 1;
-		unsigned int reset_ref_rotation_matrix : 1;
-		unsigned int tare_command : 1;
-		unsigned int soft_reset : 1;
-		unsigned int factory_calibration_restore : 1;
-		unsigned int flash_mem_update : 1;
-		unsigned int flash_mem_test : 1;
-		unsigned int self_test : 1;
+#endif /*__USE_FULL_REGISTERS*/
+
+	uint16_t 				prod_id;
+	uint16_t 				x_gyro_scale;
+	uint16_t 				y_gyro_scale;
+	uint16_t 				z_gyro_scale;
+	uint16_t 				x_accl_scale;
+	uint16_t 				y_accl_scale;
+	uint16_t 				z_accl_scale;	
+
+#ifdef __USE_FULL_REGISTERS
+	uint16_t 				xg_bias_low;
+	uint16_t 				xg_bias_high;
+	uint16_t 				yg_bias_low;
+	uint16_t 				yg_bias_high;
+	uint16_t 				zg_bias_low;
+	uint16_t 				zg_bias_high;		
+	uint16_t 				xa_bias_low;
+	uint16_t 				xa_bias_high;
+	uint16_t 				ya_bias_low;
+	uint16_t 				ya_bias_high;
+	uint16_t 				za_bias_low;
+	uint16_t 				za_bias_high;	
+	uint16_t 				hard_iron_x;
+	uint16_t 				hard_iron_y;
+	uint16_t 				hard_iron_z;
+	uint16_t 				soft_iron_s11;
+	uint16_t 				soft_iron_s12;
+	uint16_t 				soft_iron_s13;
+	uint16_t 				soft_iron_s21;
+	uint16_t 				soft_iron_s22;
+	uint16_t 				soft_iron_s23;
+	uint16_t 				soft_iron_s31;
+	uint16_t 				soft_iron_s32;
+	uint16_t 				soft_iron_s33;
+	uint16_t 				br_bias_low;
+	uint16_t 				br_bias_high;
+	uint16_t 				refmtx_r11;
+	uint16_t 				refmtx_r12;
+	uint16_t 				refmtx_r13;
+	uint16_t 				refmtx_r21;
+	uint16_t 				refmtx_r22;
+	uint16_t 				refmtx_r23;
+	uint16_t 				refmtx_r31;
+	uint16_t 				refmtx_r32;
+	uint16_t 				refmtx_r33;
+	uint16_t 				user_scr_1;
+	uint16_t 				user_scr_2;
+	uint16_t 				user_scr_3;
+	uint16_t 				user_scr_4;
+	uint16_t 				flshcnt_low;
+	uint16_t 				flshcnt_high;
+#endif /*__USE_FULL_REGISTERS*/
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	ekf_reset : 1;
+			unsigned int	not_used_0 : 5;
+			unsigned int 	reset_ref_rotation_matrix : 1;
+			unsigned int 	tare_command : 1;
+			unsigned int 	soft_reset : 1;
+			unsigned int 	factory_calibration_restore : 1;
+			unsigned int	not_used_1 : 2;
+			unsigned int 	flash_mem_update : 1;
+			unsigned int 	flash_mem_test : 1;
+			unsigned int 	self_test : 1;
+			unsigned int	not_used_2 : 1;
+		} bits;
 	} glob_cmd;
-	struct {
-		unsigned int alarm_indicator : 1;
-		unsigned int alarm_indicator_pol : 1;
-		unsigned int alarm_indicator_line : 2;
-		unsigned int sync_clock_in_en : 1;
-		unsigned int sync_clock_in_pol : 1;
-		unsigned int sync_clock_in_line : 2;
-		unsigned int data_ready_en : 1;
-		unsigned int data_ready_pol : 1;
-		unsigned int data_ready_line : 2;
+
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int	not_used_0 : 4;
+			unsigned int 	alarm_indicator : 1;
+			unsigned int 	alarm_indicator_pol : 1;
+			unsigned int 	alarm_indicator_line : 2;
+			unsigned int 	sync_clock_in_en : 1;
+			unsigned int 	sync_clock_in_pol : 1;
+			unsigned int 	sync_clock_in_line : 2;
+			unsigned int 	data_ready_en : 1;
+			unsigned int 	data_ready_pol : 1;
+			unsigned int 	data_ready_line : 2;
+		} bits;
 	} fnctio_ctrl;
-	struct {
-		unsigned int dio4_level : 1;
-		unsigned int dio3_level : 1;
-		unsigned int dio2_level : 1;
-		unsigned int dio1_level : 1;
-		unsigned int dio4_direction_ctrl : 1;
-		unsigned int dio3_direction_ctrl : 1;
-		unsigned int dio2_direction_ctrl : 1;
-		unsigned int dio1_direction_ctrl : 1;
+
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int	not_used_0 : 8;
+			unsigned int 	dio4_level : 1;
+			unsigned int 	dio3_level : 1;
+			unsigned int 	dio2_level : 1;
+			unsigned int 	dio1_level : 1;
+			unsigned int 	dio4_direction_ctrl : 1;
+			unsigned int 	dio3_direction_ctrl : 1;
+			unsigned int 	dio2_direction_ctrl : 1;
+			unsigned int 	dio1_direction_ctrl : 1;
+		} bits;
 	} gpio_ctrl;
-	struct {
-		unsigned int g_compensation_f_gyro : 1;
-		unsigned int p_percussion_allign : 1;
-		unsigned int rtc_saving_time : 1;
-		unsigned int rtc_clock_ctrl : 1;
+
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int	not_used_0 : 8;
+			unsigned int 	g_compensation_f_gyro : 1;
+			unsigned int 	p_percussion_allign : 1;
+			unsigned int	not_used_1 : 4;
+			unsigned int 	rtc_saving_time : 1;
+			unsigned int 	rtc_clock_ctrl : 1;
+		} bits;
 	} config;
-	unsigned int dec_rate : 10;
-	struct {
-		unsigned int power_down_mode : 1;
-		unsigned int normal_sleep_mode : 1;
-		unsigned int programmable_time_bits : 8;
+
+	unsigned int 			dec_rate : 10;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	not_used_0 : 6;
+			unsigned int 	power_down_mode : 1;
+			unsigned int 	normal_sleep_mode : 1;
+			unsigned int 	programmable_time_bits : 8;			
+		} bits;
 	} slp_cnt;
-	struct {
-		unsigned int y_accl_filter_en : 1;
-		unsigned int y_accl_filter_select : 2;
-		unsigned int x_accl_filter_en : 1;
-		unsigned int x_accl_filter_select : 2;
-		unsigned int z_gyro_filter_en : 1;
-		unsigned int z_gyro_filter_select : 2;
-		unsigned int y_gyro_filter_en : 1;
-		unsigned int y_gyro_filter_select : 2;
-		unsigned int x_gyro_filter_en : 1;
-		unsigned int x_gyro_filter_select : 2;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int	not_used_0 : 1;
+			unsigned int 	y_accl_filter_en : 1;
+			unsigned int 	y_accl_filter_select : 2;
+			unsigned int 	x_accl_filter_en : 1;
+			unsigned int 	x_accl_filter_select : 2;
+			unsigned int 	z_gyro_filter_en : 1;
+			unsigned int 	z_gyro_filter_select : 2;
+			unsigned int 	y_gyro_filter_en : 1;
+			unsigned int 	y_gyro_filter_select : 2;
+			unsigned int 	x_gyro_filter_en : 1;
+			unsigned int 	x_gyro_filter_select : 2;
+		} bits;
 	} fltr_bnk_0;
-	struct {
-		unsigned int z_magn_filter_en : 1;
-		unsigned int z_magn_filter_select : 2;
-		unsigned int y_magn_filter_en : 1;
-		unsigned int y_magn_filter_select : 2;
-		unsigned int x_magn_filter_en : 1;
-		unsigned int x_magn_filter_select : 2;
-		unsigned int z_accl_filter_en : 1;
-		unsigned int z_accl_filter_select : 2;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	not_used_0 : 4;
+			unsigned int 	z_magn_filter_en : 1;
+			unsigned int 	z_magn_filter_select : 2;
+			unsigned int 	y_magn_filter_en : 1;
+			unsigned int 	y_magn_filter_select : 2;
+			unsigned int 	x_magn_filter_en : 1;
+			unsigned int 	x_magn_filter_select : 2;
+			unsigned int 	z_accl_filter_en : 1;
+			unsigned int 	z_accl_filter_select : 2;
+		} bits;
 	} fltr_bnk_1;
-	struct {
-		unsigned int x_accl_alarm : 1;
-		unsigned int x_accl_alarm_pol : 1;
-		unsigned int x_accl_dynamic_en : 1;
-		unsigned int z_gyro_alarm : 1;
-		unsigned int z_gyro_alarm_pol : 1;
-		unsigned int z_gyro_dynamic_en : 1;
-		unsigned int y_gyro_alarm : 1;
-		unsigned int y_gyro_alarm_pol : 1;
-		unsigned int y_gyro_dynamic_en : 1;
-		unsigned int x_gyro_alarm : 1;
-		unsigned int x_gyro_alarm_pol : 1;
-		unsigned int x_gyro_dynamic_en : 1;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	x_accl_alarm : 1;
+			unsigned int 	not_used_0 : 1;
+			unsigned int 	x_accl_alarm_pol : 1;
+			unsigned int 	x_accl_dynamic_en : 1;
+			unsigned int 	z_gyro_alarm : 1;
+			unsigned int 	not_used_1 : 1;
+			unsigned int 	z_gyro_alarm_pol : 1;
+			unsigned int 	z_gyro_dynamic_en : 1;
+			unsigned int 	y_gyro_alarm : 1;
+			unsigned int 	not_used_2 : 1;
+			unsigned int 	y_gyro_alarm_pol : 1;
+			unsigned int 	y_gyro_dynamic_en : 1;
+			unsigned int 	x_gyro_alarm : 1;
+			unsigned int 	not_used_3 : 1;
+			unsigned int 	x_gyro_alarm_pol : 1;
+			unsigned int 	x_gyro_dynamic_en : 1;
+		} bits;
 	} alm_cnfg_0;
-	struct {
-		unsigned int y_magn_alarm : 1;
-		unsigned int y_magn_alarm_pol : 1;
-		unsigned int y_magn_dynamic_en : 1;
-		unsigned int x_magn_alarm : 1;
-		unsigned int x_magn_alarm_pol : 1;
-		unsigned int x_magn_dynamic_en : 1;
-		unsigned int z_accl_alarm : 1;
-		unsigned int z_accl_alarm_pol : 1;
-		unsigned int z_accl_dynamic_en : 1;
-		unsigned int y_accl_alarm : 1;
-		unsigned int y_accl_alarm_pol : 1;
-		unsigned int y_accl_dynamic_en : 1;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	y_magn_alarm : 1;
+			unsigned int 	not_used_0 : 1;
+			unsigned int 	y_magn_alarm_pol : 1;
+			unsigned int 	y_magn_dynamic_en : 1;
+			unsigned int 	x_magn_alarm : 1;
+			unsigned int 	not_used_1 : 1;
+			unsigned int 	x_magn_alarm_pol : 1;
+			unsigned int 	x_magn_dynamic_en : 1;
+			unsigned int 	z_accl_alarm : 1;
+			unsigned int 	not_used_2 : 1;
+			unsigned int 	z_accl_alarm_pol : 1;
+			unsigned int 	z_accl_dynamic_en : 1;
+			unsigned int 	y_accl_alarm : 1;
+			unsigned int 	not_used_3 : 1;
+			unsigned int 	y_accl_alarm_pol : 1;
+			unsigned int 	y_accl_dynamic_en : 1;
+		} bits;
 	} alm_cnfg_1;
-	struct {
-		unsigned int barometer_alarm : 1;
-		unsigned int barometer_alarm_pol : 1;
-		unsigned int barometer_dynamic_en : 1;
-		unsigned int z_magn_alarm : 1;
-		unsigned int z_magn_alarm_pol : 1;
-		unsigned int z_magn_dynamic_en : 1;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int	not_used_0 : 8;
+			unsigned int 	barometer_alarm : 1;
+			unsigned int	not_used_1 : 1;
+			unsigned int 	barometer_alarm_pol : 1;
+			unsigned int 	barometer_dynamic_en : 1;
+			unsigned int 	z_magn_alarm : 1;
+			unsigned int	not_used_2 : 1;
+			unsigned int 	z_magn_alarm_pol : 1;
+			unsigned int 	z_magn_dynamic_en : 1;
+		} bits;
 	} alm_cnfg_2;
-	uint16_t xg_alm_magn;
-	uint16_t yg_alm_magn;
-	uint16_t zg_alm_magn;
-	uint16_t xa_alm_magn;
-	uint16_t ya_alm_magn;
-	uint16_t xm_alm_magn;
-	uint16_t ym_alm_magn;
-	uint16_t zm_alm_magn;
-	uint16_t br_alm_magn;
-	struct {
-		unsigned int auto_reset_recovery : 1;
-		unsigned int fade_en : 1;
-		unsigned int adaptive_ekf_en : 1;
-		unsigned int orientation_format : 1;
-		unsigned int body_frame_select : 1;
-		unsigned int magn_disable : 1;
-		unsigned int graviry_removal : 1;
+
+	uint16_t 				xg_alm_magn;
+	uint16_t 				yg_alm_magn;
+	uint16_t 				zg_alm_magn;
+	uint16_t 				xa_alm_magn;
+	uint16_t 				ya_alm_magn;
+	uint16_t 				xm_alm_magn;
+	uint16_t 				ym_alm_magn;
+	uint16_t 				zm_alm_magn;
+	uint16_t 				br_alm_magn;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int	not_used_0 : 3;
+			unsigned int 	auto_reset_recovery : 1;
+			unsigned int	not_used_1 : 2;
+			unsigned int 	fade_en : 1;
+			unsigned int 	adaptive_ekf_en : 1;
+			unsigned int	not_used_2 : 2;
+			unsigned int 	orientation_format : 1;
+			unsigned int 	body_frame_select : 1;
+			unsigned int 	magn_disable : 1;
+			unsigned int 	graviry_removal : 1;
+		} bits;
 	} ekf_cnfg;
-	uint16_t decln_angl;
-	uint16_t acc_distb_thr;
-	uint16_t mag_distb_thr;
-	uint16_t qcvr_nois_lwr;
-	uint16_t qcvr_nois_upr;
-	uint16_t qcvr_rrw_lwr;
-	uint16_t qcvr_rrw_upr;
-	uint16_t rcvr_acc_lwr;
-	uint16_t rcvr_acc_upr;
-	uint16_t rcvr_mag_lwr;
-	uint16_t rcvr_mag_upr;
-	struct {
-		unsigned int binary_rev_10s_d : 4;
-		unsigned int binary_rev_1s_d : 4;
-		unsigned int binary_rev_tenths_d : 4;
-		unsigned int binary_rev_hundredths_d : 4;
+
+	uint16_t 				decln_angl;
+	uint16_t 				acc_distb_thr;
+	uint16_t 				mag_distb_thr;
+	uint16_t 				qcvr_nois_lwr;
+	uint16_t 				qcvr_nois_upr;
+	uint16_t 				qcvr_rrw_lwr;
+	uint16_t 				qcvr_rrw_upr;
+	uint16_t 				rcvr_acc_lwr;
+	uint16_t 				rcvr_acc_upr;
+	uint16_t 				rcvr_mag_lwr;
+	uint16_t 				rcvr_mag_upr;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int binary_rev_10s_d : 4;
+			unsigned int binary_rev_1s_d : 4;
+			unsigned int binary_rev_tenths_d : 4;
+			unsigned int binary_rev_hundredths_d : 4;
+		} bits;
 	} firm_rev;
-	struct {
-		unsigned int binary_month_10s_d : 4;
-		unsigned int binary_month_1s_d : 4;
-		unsigned int binary_day_10s_d : 4;
-		unsigned int binary_day_1s_d : 4;		
+
+	union {
+		uint16_t			adis_register;
+		struct {
+			unsigned int 	binary_month_10s_d : 4;
+			unsigned int 	binary_month_1s_d : 4;
+			unsigned int 	binary_day_10s_d : 4;
+			unsigned int 	binary_day_1s_d : 4;	
+		} bits;
 	} firm_dm;
-	struct {
-		unsigned int binary_year_1000s_d : 4;
-		unsigned int binary_year_100s_d : 4;
-		unsigned int binary_year_10s_d : 4;
-		unsigned int binary_year_1s_d : 4;
+
+	union {
+		uint16_t 			adis_register;
+		struct {
+			unsigned int 	binary_year_1000s_d : 4;
+			unsigned int 	binary_year_100s_d : 4;
+			unsigned int 	binary_year_10s_d : 4;
+			unsigned int 	binary_year_1s_d : 4;
+		} bits;
 	} firm_y;
-	uint16_t serial_num;
+
+	uint16_t 				serial_num;
+	// future todo work
+#ifdef TODO
 	uint16_t fir_coef_a[120];
 	uint16_t fir_coef_b[120];
 	uint16_t fir_coef_c[120];
 	uint16_t fir_coef_d[120];
+#endif
 }adis16480_t;
 
 uint8_t adis16480_init(adis16480_t *object,
@@ -483,8 +623,6 @@ void adis16480_reset(adis16480_t *object);
 void adis16480_set_body_frame(adis16480_t *sensor);
 
 void adis16480_update_euler_angles(adis16480_t *sensor);
-
-uint16_t adis16480_read_register_in_debug(adis16480_t *object, uint16_t reg);
 
 void adis16480_set_gyro_scale_to_rads(adis16480_t *sensor);
 
@@ -511,12 +649,6 @@ void adis16480_read_seq_cnt(adis16480_t *object);
 void adis16480_read_sys_e_flag(adis16480_t *object);
 
 void adis16480_tare(adis16480_t *object);
-
-uint16_t adis16480_read_page(adis16480_t *object);
-
-uint16_t adis16480_read_register(adis16480_t *object, uint16_t reg_addr);
-
-void adis16480_write_register(adis16480_t *object, uint16_t reg_addr, uint16_t value);
 
 void adis16480_self_test(adis16480_t *object);
 
