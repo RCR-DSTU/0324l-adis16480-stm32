@@ -1,6 +1,6 @@
 #include "adis16480.h"
 
-static void adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value);
+static HAL_StatusTypeDef adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value);
 static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr);
 
 uint8_t adis16480_init(adis16480_t *sensor,
@@ -205,9 +205,8 @@ void adis16480_update_magnetic_course(adis16480_t *sensor)
 
 void adis16480_read_seq_cnt(adis16480_t *sensor)
 {
-    uint16_t answer = 0x00;
-    answer = adis16480_read_register(sensor, SEQ_CNT);
-    sensor->seq_cnt = answer;
+    uint16_t answer = adis16480_read_register(sensor, SEQ_CNT);
+    sensor->seq_cnt = (answer)&0x3F;
 }
 
 void adis16480_read_sys_e_flag(adis16480_t *sensor)
@@ -217,16 +216,7 @@ void adis16480_read_sys_e_flag(adis16480_t *sensor)
 
 void adis16480_read_diag_sts(adis16480_t *sensor)
 {
-    uint16_t answer = adis16480_read_register(sensor, DIAG_STS);
-
-    sensor->diag_sts.barometer_self_test_failure = (answer&0x800) >> 11;
-    
-    sensor->diag_sts.magn_z_self_test_failure = (answer&0x400) >> 10;
-    sensor->diag_sts.magn_y_self_test_failure = (answer&0x200) >> 9;
-    sensor->diag_sts.magn_x_self_test_failure = (answer&0x100) >> 8;
-
-    sensor->diag_sts.accel_z_self_test_failure = (answer&0x20) >> 5;
-    sensor->diag_sts.accel_y_self_test_failure = (answer&0x10) >> 4;
+    sensor->diag_sts.adis_register = adis16480_read_register(sensor, DIAG_STS);
 }
 
 void adis16480_tare(adis16480_t *sensor)
@@ -268,26 +258,29 @@ static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr)
     return(_data_read);
 }
 
-static void adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value)
+static HAL_StatusTypeDef adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value)
 {
+    HAL_StatusTypeDef ret;
     uint16_t reg;	
     // Set page
     reg = 0x8000 | (reg_addr >> 8); // Memory write, Change page
     // send CS low to enable SPI transfer to/from ADIS16480
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
+    ret = HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
     // send CS high to disable SPI transfer to/from ADIS16480
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
 
     // Set register
     reg = 0x8000 | (reg_addr << 8) | (value & 0x00FF);
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
+    ret = HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
 
     // Set register
     reg = 0x8000 | ((reg_addr+1) << 8) | (value >> 8);
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
+    ret = HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
     HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
+
+    return ret;
 }
