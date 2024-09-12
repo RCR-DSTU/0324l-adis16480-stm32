@@ -2,9 +2,20 @@
 #ifndef _ADIS16480_H_
 #define _ADIS16480_H_
 
+#if defined(STM32F401xx) || defined(STM32F407xx) || defined(STM32F411xx) ||\
+	defined(STM32F427xx)
 #include "stm32f4xx_hal.h"
-#include "spi.h"
+#elif defined(STM32F103xx)
+#include "stm32f1xx.hal.h"
+#elif defined(STM32F745xx)
+#include "stm32f7xx.hal.h"
+#else
+#error "Missing required STM32 chip define. Check global define settings"
+#error "Check and accept that your main.h file have include base peripheral lib"
+#define ERROR_RECEIVED
+#endif
 #include <math.h>
+#include "string.h"
 
 /*
 	@brief __USE_FULL_REGISTERS
@@ -14,7 +25,7 @@
 
 	Unlock full functions list
 */
-#define __USE_FULL_REGISTERS
+//#define __USE_FULL_REGISTERS
 
 #define SPI_NOP 		0x00 // No operation. Use for dummy writes.
 // User Register Memory Map from Table 9
@@ -160,6 +171,8 @@
 #define FIR_COEF_D_LOW 	0x0B02 // to 0x7E N/A, R/W, Yes, FIR Filter Bank D Coefficients 0 through 59, Table 74
 #define FIR_COEF_D_HIGH 0x0C02 // to 0x7E N/A, R/W, Yes, FIR Filter Bank D Coefficients 60 through 119, Table 74
 
+
+#ifndef ERROR_RECEIVED
 typedef struct {
 	/* Interfaces */
 
@@ -169,15 +182,19 @@ typedef struct {
 
 	/* Main ADIS output parameters */
 	float euler_angle[3];
+	int8_t euler_angle_dirs[3];
 	float euler_scale_var;
 
 	float linear_acceleration[3];
+	int8_t accelerometer_dirs[3];
 	float accl_scale_var;
 
 	float angular_velocity[3];
+	int8_t gyroscope_dirs[3];
 	float gyro_scale_var;
 
 	float magnetic_field[3];
+	int8_t magnetic_field_dirs[3];
 	float magn_course;
 	float magn_scale_var;
 
@@ -611,10 +628,10 @@ typedef struct {
 #endif
 }adis16480_t;
 
-uint8_t adis16480_init(adis16480_t *object,
-                    SPI_HandleTypeDef *interface, 
-                    GPIO_TypeDef *port,
-                    uint16_t pin);
+HAL_StatusTypeDef adis16480_init(adis16480_t *object,
+							SPI_HandleTypeDef *interface, 
+							GPIO_TypeDef *port,
+							uint16_t pin);
 
 void adis16480_tick(adis16480_t *sensor);
 
@@ -648,6 +665,8 @@ void adis16480_read_seq_cnt(adis16480_t *object);
 
 void adis16480_read_sys_e_flag(adis16480_t *object);
 
+void adis16480_read_diag_sts(adis16480_t *sensor);
+
 void adis16480_tare(adis16480_t *object);
 
 void adis16480_self_test(adis16480_t *object);
@@ -657,5 +676,5 @@ void adis16480_set_body_frame(adis16480_t *object);
 void adis16480_set_dec_rate(uint16_t value);
 
 void adis16480_set_ref_matrix(int16_t *matrix);
-
+#endif /*ERROR_RECEIVED*/
 #endif /*_ADIS16480_H_*/

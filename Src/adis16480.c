@@ -1,9 +1,9 @@
 #include "adis16480.h"
-
+#ifndef ERROR_RECEIVED
 static HAL_StatusTypeDef adis16480_write_register(adis16480_t *sensor, uint16_t reg_addr, uint16_t value);
 static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr);
 
-uint8_t adis16480_init(adis16480_t *sensor,
+HAL_StatusTypeDef adis16480_init(adis16480_t *sensor,
                     SPI_HandleTypeDef *interface, 
                     GPIO_TypeDef *cs_port,
                     uint16_t cs_pin)
@@ -15,19 +15,28 @@ uint8_t adis16480_init(adis16480_t *sensor,
     sensor->prod_id = 0x00;
 
     sensor->prod_id = adis16480_read_register(sensor, PROD_ID);
-    if(sensor->prod_id != 0x4060) return 0x01;
+    if(sensor->prod_id != 0x4060) return HAL_ERROR;
 
     sensor->dec_rate = adis16480_read_register(sensor, DEC_RATE);
 
     // initial scaling to m/s^2
-    sensor->accl_scale_var = (9.80665f / 1250);
+    sensor->accl_scale_var = 0.00784f;
     // initial scaling to deg/s
     sensor->gyro_scale_var = 0.02f;
     // initial scaling to gauss
     sensor->magn_scale_var = 0.0001f;
     // initial scaling to degrees
-    sensor->euler_scale_var = 0.00549324;
-    return 0x00;
+    sensor->euler_scale_var = 0.00549324f;
+
+    memset(&sensor->accelerometer_dirs[0], 0x00, sizeof(sensor->accelerometer_dirs));
+
+    return HAL_OK;
+}
+
+void adis16480_end_calibration(adis16480_t *sensor)
+{
+    adis16480_set_body_frame(sensor);
+    adis16480_tare(sensor);
 }
 
 /*
@@ -47,52 +56,51 @@ __weak void adis16480_tick(adis16480_t *sensor)
 
 __weak void adis16480_diagnostic_tick(adis16480_t *sensor)
 {
-    
+    adis16480_read_diag_sts(sensor);
+    adis16480_read_sys_e_flag(sensor);
 }
 
 void adis16480_reset(adis16480_t *sensor)
 {
-    uint16_t reg = 0x8003;
-
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    // Set register
-    reg = 0x8280;
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    // Read Data
-    reg = 0x8300;
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
+    adis16480_write_register(sensor, GLOB_CMD, 0x80);
     HAL_Delay(1800);
 }
 
 void adis16480_set_body_frame(adis16480_t *sensor)
 {
-    uint16_t reg = 0x8003;
-
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    // Set register
-    reg = 0xD008;
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
-
-    // Read Data
-    reg = 0xD102;
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(sensor->interface, (uint8_t *)&reg, 1, 10);
-    HAL_GPIO_WritePin(sensor->cs_port, sensor->cs_pin, GPIO_PIN_SET);
+    adis16480_write_register(sensor, EKF_CNFG, 0x8);
 }
 
+/*
+    Gyro operations
+*/
+
+/*
+    @brief adis16480_update_angular_velocity
+*/
+void adis16480_update_angular_velocity(adis16480_t *sensor)
+{
+	sensor->x_gyro_low = adis16480_read_register(sensor, X_GYRO_LOW);
+    sensor->x_gyro_out = adis16480_read_register(sensor, X_GYRO_OUT);
+    sensor->y_gyro_low = adis16480_read_register(sensor, Y_GYRO_LOW);
+    sensor->y_gyro_out = adis16480_read_register(sensor, Y_GYRO_OUT);
+    sensor->z_gyro_low = adis16480_read_register(sensor, Z_GYRO_LOW);
+    sensor->z_gyro_out = adis16480_read_register(sensor, Z_GYRO_OUT);
+
+    if(sensor->dec_rate == 0x00)
+    {
+        sensor->angular_velocity[0] = 
+            sensor->x_gyro_out * sensor->gyro_scale_var;
+        sensor->angular_velocity[1] = 
+            sensor->y_gyro_out * sensor->gyro_scale_var;
+        sensor->angular_velocity[2] = 
+            sensor->z_gyro_out * sensor->gyro_scale_var;
+    }
+}
+
+/*
+    @brief adis16480_set_gyro_scale_to_rads
+*/
 void adis16480_set_gyro_scale_to_rads(adis16480_t *sensor)
 {
     sensor->gyro_scale_var = (0.02f * M_PI / 180.0f);
@@ -108,9 +116,55 @@ void adis16480_set_gyro_scale_custom(adis16480_t *sensor, float new_scale)
     sensor->gyro_scale_var = new_scale;
 }
 
-void adis16480_set_accl_scale(adis16480_t *sensor, float new_scale)
+/*
+    Accel operations
+*/
+
+void adis16480_update_acceleration(adis16480_t *sensor)
+{
+    sensor->x_accl_low = adis16480_read_register(sensor, X_ACCL_LOW);
+    sensor->x_accl_out = adis16480_read_register(sensor, X_ACCL_OUT);
+    sensor->y_accl_low = adis16480_read_register(sensor, Y_ACCL_LOW);
+    sensor->y_accl_out = adis16480_read_register(sensor, Y_ACCL_OUT);
+    sensor->z_accl_low = adis16480_read_register(sensor, Z_ACCL_LOW);
+    sensor->z_accl_out = adis16480_read_register(sensor, Z_ACCL_OUT);
+
+    if(sensor->dec_rate == 0x00)
+    {
+        sensor->linear_acceleration[0] = 
+            (int32_t)sensor->x_accl_out * sensor->accl_scale_var;
+        sensor->linear_acceleration[1] = 
+            (int32_t)sensor->y_accl_out * sensor->accl_scale_var;
+        sensor->linear_acceleration[2] = 
+            (int32_t)sensor->z_accl_out * sensor->accl_scale_var;
+    }
+}
+
+void adis16480_set_accl_scale_to_ms2(adis16480_t *sensor)
+{
+    sensor->accl_scale_var = 0.00784532f;
+}
+
+void adis16480_set_accl_scale_custom(adis16480_t *sensor, float new_scale)
 {
     sensor->accl_scale_var = new_scale;
+}
+
+/*
+    Magn operations
+*/
+
+void adis16480_update_magnetic_course(adis16480_t *sensor)
+{
+    sensor->x_magn_out = adis16480_read_register(sensor, X_MAGN_OUT);
+    sensor->y_magn_out = adis16480_read_register(sensor, Y_MAGN_OUT);
+    sensor->z_magn_out = adis16480_read_register(sensor, Z_MAGN_OUT);
+
+    sensor->magnetic_field[0] = sensor->x_magn_out * sensor->magn_scale_var;
+    sensor->magnetic_field[1] = sensor->y_magn_out * sensor->magn_scale_var;
+    sensor->magnetic_field[2] = sensor->z_magn_out * sensor->magn_scale_var; 
+
+    sensor->magn_course = atan2(sensor->magnetic_field[1], sensor->magnetic_field[0]);
 }
 
 void adis16480_set_magn_scale_to_tesla(adis16480_t *sensor)
@@ -142,65 +196,12 @@ void adis16480_update_euler_angles(adis16480_t *sensor)
         (int32_t)sensor->yaw_c32_out * sensor->euler_scale_var;    
 }
 
-void adis16480_update_acceleration(adis16480_t *sensor)
-{
-    sensor->x_accl_low = adis16480_read_register(sensor, X_ACCL_LOW);
-    sensor->x_accl_out = adis16480_read_register(sensor, X_ACCL_OUT);
-    sensor->y_accl_low = adis16480_read_register(sensor, Y_ACCL_LOW);
-    sensor->y_accl_out = adis16480_read_register(sensor, Y_ACCL_OUT);
-    sensor->z_accl_low = adis16480_read_register(sensor, Z_ACCL_LOW);
-    sensor->z_accl_out = adis16480_read_register(sensor, Z_ACCL_OUT);
-
-    if(sensor->dec_rate == 0x00)
-    {
-        sensor->linear_acceleration[0] = 
-            (int32_t)sensor->x_accl_out * sensor->accl_scale_var;
-        sensor->linear_acceleration[1] = 
-            (int32_t)sensor->y_accl_out * sensor->accl_scale_var;
-        sensor->linear_acceleration[2] = 
-            (int32_t)sensor->z_accl_out * sensor->accl_scale_var;
-    }
-}
-
-void adis16480_update_angular_velocity(adis16480_t *sensor)
-{
-	sensor->x_gyro_low = adis16480_read_register(sensor, X_GYRO_LOW);
-    sensor->x_gyro_out = adis16480_read_register(sensor, X_GYRO_OUT);
-    sensor->y_gyro_low = adis16480_read_register(sensor, Y_GYRO_LOW);
-    sensor->y_gyro_out = adis16480_read_register(sensor, Y_GYRO_OUT);
-    sensor->z_gyro_low = adis16480_read_register(sensor, Z_GYRO_LOW);
-    sensor->z_gyro_out = adis16480_read_register(sensor, Z_GYRO_OUT);
-
-    if(sensor->dec_rate == 0x00)
-    {
-        sensor->angular_velocity[0] = 
-            sensor->x_gyro_out * sensor->gyro_scale_var;
-        sensor->angular_velocity[1] = 
-            sensor->y_gyro_out * sensor->gyro_scale_var;
-        sensor->angular_velocity[2] = 
-            sensor->z_gyro_out * sensor->gyro_scale_var;
-    }
-}
-
 void adis16480_update_pressure(adis16480_t *sensor)
 {
     sensor->barom_low = adis16480_read_register(sensor, BAROM_LOW);
     sensor->barom_out = adis16480_read_register(sensor, BAROM_OUT);
 
     sensor->pressure = sensor->barom_out * sensor->pressure_scale_var;
-}
-
-void adis16480_update_magnetic_course(adis16480_t *sensor)
-{
-    sensor->x_magn_out = adis16480_read_register(sensor, X_MAGN_OUT);
-    sensor->y_magn_out = adis16480_read_register(sensor, Y_MAGN_OUT);
-    sensor->z_magn_out = adis16480_read_register(sensor, Z_MAGN_OUT);
-
-    sensor->magnetic_field[0] = sensor->x_magn_out * sensor->magn_scale_var;
-    sensor->magnetic_field[1] = sensor->y_magn_out * sensor->magn_scale_var;
-    sensor->magnetic_field[2] = sensor->z_magn_out * sensor->magn_scale_var; 
-
-    sensor->magn_course = atan2(sensor->magnetic_field[1], sensor->magnetic_field[0]);
 }
 
 void adis16480_read_seq_cnt(adis16480_t *sensor)
@@ -284,3 +285,4 @@ static HAL_StatusTypeDef adis16480_write_register(adis16480_t *sensor, uint16_t 
 
     return ret;
 }
+#endif /*ERROR_RECEIVED*/
