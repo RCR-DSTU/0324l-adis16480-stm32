@@ -27,6 +27,9 @@ HAL_StatusTypeDef adis16480_init(adis16480_t *sensor,
     sensor->magn_scale_var = 0.0001f;
     // initial scaling to degrees
     sensor->euler_scale_var = 0.00549324f;
+
+    memset(&sensor->accelerometer_dirs[0], 0x00, sizeof(sensor->accelerometer_dirs));
+
     return HAL_OK;
 }
 

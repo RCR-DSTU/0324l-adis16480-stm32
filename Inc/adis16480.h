@@ -15,6 +15,7 @@
 #define ERROR_RECEIVED
 #endif
 #include <math.h>
+#include "string.h"
 
 /*
 	@brief __USE_FULL_REGISTERS
@@ -181,15 +182,19 @@ typedef struct {
 
 	/* Main ADIS output parameters */
 	float euler_angle[3];
+	int8_t euler_angle_dirs[3];
 	float euler_scale_var;
 
 	float linear_acceleration[3];
+	int8_t accelerometer_dirs[3];
 	float accl_scale_var;
 
 	float angular_velocity[3];
+	int8_t gyroscope_dirs[3];
 	float gyro_scale_var;
 
 	float magnetic_field[3];
+	int8_t magnetic_field_dirs[3];
 	float magn_course;
 	float magn_scale_var;
 
