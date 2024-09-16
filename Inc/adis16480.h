@@ -60,6 +60,10 @@ void adis16480_set_gyro_scale_custom(adis16480_t *, float);
 
 void adis16480_set_accl_scale(adis16480_t *, float);
 
+void adis16480_set_euler_scale_to_rads(adis16480_t *sensor);
+
+void adis16480_set_euler_scale_to_degs(adis16480_t *sensor);
+
 void adis16480_set_magn_scale_to_tesla(adis16480_t *);
 
 void adis16480_set_magn_scale_to_gauss(adis16480_t *);
@@ -87,5 +91,15 @@ void adis16480_set_body_frame(adis16480_t *);
 void adis16480_set_dec_rate(uint16_t);
 
 void adis16480_set_ref_matrix(int16_t *);
+
+void adis16480_get_acceleration(adis16480_t *sensor, float *buffer);
+
+void adis16480_get_angular_velocity(adis16480_t *sensor, float *buffer);
+
+void adis16480_get_magnetic_field(adis16480_t *sensor, float *buffer);
+
+void adis16480_get_euler_angles(adis16480_t *sensor, float *buffer);
+
+float adis16480_get_magnetic_course(adis16480_t *sensor);
 #endif /*ERROR_RECEIVED*/
 #endif /*_ADIS16480_H_*/
