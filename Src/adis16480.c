@@ -152,7 +152,7 @@ struct __adis16480_t{
     GPIO_TypeDef *cs_port;
     uint16_t cs_pin;
     unsigned int is_dma_transfer : 1;
-    
+
 
 	/* Main ADIS output parameters */
 	float euler_angle[3];
@@ -811,6 +811,16 @@ void adis16480_update_euler_angles(adis16480_t *sensor)
         (int32_t)sensor->yaw_c32_out * sensor->euler_scale_var;    
 }
 
+void adis16480_set_euler_scale_to_rads(adis16480_t *sensor)
+{
+    sensor->euler_scale_var = 0.0000958f;
+}
+
+void adis16480_set_euler_scale_to_degs(adis16480_t *sensor)
+{
+    sensor->euler_scale_var = 0.00549324f;
+}
+
 void adis16480_update_pressure(adis16480_t *sensor)
 {
     sensor->barom_low = adis16480_read_register(sensor, BAROM_LOW);
@@ -848,6 +858,31 @@ void adis16480_self_test(adis16480_t *sensor)
     HAL_Delay(12);
     // reading result state in diag_sts register
     adis16480_read_diag_sts(sensor);
+}
+
+void adis16480_get_acceleration(adis16480_t *sensor, float *buffer)
+{
+    memcpy(buffer, sensor->linear_acceleration, sizeof(sensor->linear_acceleration));
+}
+
+void adis16480_get_angular_velocity(adis16480_t *sensor, float *buffer)
+{
+    memcpy(buffer, sensor->angular_velocity, sizeof(sensor->angular_velocity));
+}
+
+void adis16480_get_magnetic_field(adis16480_t *sensor, float *buffer)
+{
+    memcpy(buffer, sensor->magnetic_field, sizeof(sensor->magnetic_field));
+}
+
+void adis16480_get_euler_angles(adis16480_t *sensor, float *buffer)
+{
+    memcpy(buffer, sensor->euler_angle, sizeof(sensor->euler_angle));
+}
+
+float adis16480_get_magnetic_course(adis16480_t *sensor)
+{
+    return sensor->magn_course;
 }
 
 static uint16_t adis16480_read_register(adis16480_t *sensor, uint16_t reg_addr)
