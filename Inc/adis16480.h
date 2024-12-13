@@ -19,6 +19,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+// #include "FreeRTOS.h"
+#ifdef INC_FREERTOS_H
+#include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+#endif
+
 #ifndef ERROR_RECEIVED
 /*
 	@brief __ADIS16480_FULL_REGS
@@ -181,7 +188,8 @@ typedef struct __adis16480_t adis16480_t;
 
 adis16480_t *adis16480_init(SPI_HandleTypeDef *interface, 
                             GPIO_TypeDef *cs_port,
-                            uint16_t cs_pin);
+                            uint16_t cs_pin,
+							uint8_t mode);
 
 /*!
 	General function
